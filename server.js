@@ -6,6 +6,9 @@ import path from "path";
 import BeauticianRouter from "./routes/beautician.js";
 import servicesRouter from "./routes/services.js";
 import appointmentRouter from "./routes/appointment.js";
+import expencesRouter from "./routes/expences.js";
+import saleRouter from "./routes/sale.js";
+import galleryRouter from "./routes/gallery.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +25,9 @@ app.use("/products", productsRouter);
 app.use("/beautician", BeauticianRouter);
 app.use("/services", servicesRouter);
 app.use("/appointment", appointmentRouter);
+app.use("/expences", expencesRouter);
+app.use("/sale", saleRouter);
+app.use("/gallery", galleryRouter);
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

@@ -1,7 +1,8 @@
 import db from "../model/db.js";
 import { v4 as uuidv4 } from "uuid";
 import { uploadProductImage } from "../config/multerConfig.js";
-
+import fs from 'fs';
+import path from 'path';
 // get products
 export async function getProducts(req, res) {
     try {
@@ -224,12 +225,32 @@ export function updateProduct(req, res) {
   }
 }
 
-
+// add categories
+export async function addCategories(req,res){
+  const{name} = req.body
+  
+  const categoryId = uuidv4()
+  const sql = `INSERT INTO categories(id, category_name) VALUES (?,?)`
+  try{
+    const[response] = await db.execute(sql,[categoryId,name])
+    
+    if(response.affectedRows>0){
+     return res.status(201).json({ message: 'Category added successfully', id: categoryId });
+    }
+  }catch(e){
+    console.log("Internal server error" + e);
+    res.status(404)
+    
+  }
+}
 // get categories
 export async function getCategories(req, res) {
+  
   const sql = "SELECT * FROM categories";
   try {
     const [result] = await db.query(sql);
+    console.log(result);
+    
     if (result.length > 0) {
       res.json({ list: result });
     }
@@ -239,16 +260,81 @@ export async function getCategories(req, res) {
 }
 
 // delete product
-export async function deleteProduct(req,res){
-  const id = req.params.id
-    const sql = `DELETE FROM products WHERE product_id = ?`
-    try{
-      const[response] = await db.execute(sql,[id])
-      if(response.affectedRows>0){
-        return res.status(200).json({status:"success",message:"Product Removed"})
-      }
-      return res.status(404).json({status:"error",message:"cannot delete product"})
-    }catch(e){
-      return res.json({status:"error",message:"internal server error"})
+
+export async function deleteProduct(req, res) {
+  const id = req.params.id;
+
+  try {
+    // Step 1: Get the image filename
+    const [rows] = await db.execute(`SELECT image FROM products WHERE product_id = ?`, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ status: "error", message: "Product not found" });
     }
+
+    const imageFilename = rows[0].image;
+    const imagePath = path.join('uploads', imageFilename);
+
+    // Step 2: Delete the image file if it exists
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    // Step 3: Delete the product from the database
+    const [response] = await db.execute(`DELETE FROM products WHERE product_id = ?`, [id]);
+
+    if (response.affectedRows > 0) {
+      return res.status(200).json({ status: "success", message: "Product Removed" });
+    }
+
+    return res.status(404).json({ status: "error", message: "Cannot delete product" });
+
+  } catch (e) {
+    console.error("Error deleting product:", e);
+    return res.status(500).json({ status: "error", message: "Internal server error" });
+  }
+}
+
+
+export async function deleteCategory(req,res){
+      const id = req.params.id
+    const sql = `DELETE FROM categories WHERE id=?`
+    try{
+        const[response] = await db.execute(sql,[id])
+        if(response.affectedRows>0){
+            res.status(200).json({status:"success",message:"Record Deleted"})
+        }
+    }catch(e){
+        console.log("Cannot Delete Record" + e);
+        res.status(404)
+    }
+}
+
+export async function getCategoriesById(req,res){
+  const id = req.params.id
+  
+  const sql = `SELECT * FROM categories WHERE id = ?`
+  try{
+    const[response] = await db.execute(sql,[id])
+    res.status(200).json(response[0])
+  }catch(e){
+    console.log("Cannot get Category" + e);
+    
+  }
+}
+
+export async function updateCategory(req, res) {
+  const id = req.params.id;
+  const { name } = req.body;
+
+  const sql = `UPDATE categories SET category_name = ? WHERE id = ?`;
+
+  try {
+    const [result] = await db.query(sql, [name, id]);
+
+    res.status(200).json({ message: 'Category updated successfully' });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 }

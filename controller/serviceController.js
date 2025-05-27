@@ -1,6 +1,8 @@
 import db from "../model/db.js";
 import { v4 as uuidv4 } from "uuid";
 import { uploadProductImage } from "../config/multerConfig.js";
+import fs from 'fs';
+import path from 'path';
 // get service
 export async function getService(req, res) {
     try {
@@ -191,16 +193,38 @@ export function updateService(req, res) {
 }
 
 // delete service
-export async function deleteService(req,res){
-  const id = req.params.id
-    const sql = `DELETE FROM services WHERE service_id = ?`
-    try{
-      const[response] = await db.execute(sql,[id])
-      if(response.affectedRows>0){
-        return res.status(200).json({status:"success",message:"Service Removed"})
-      }
-      return res.status(404).json({status:"error",message:"cannot delete service"})
-    }catch(e){
-      return res.json({status:"error",message:"internal server error"})
+
+
+export async function deleteService(req, res) {
+  const id = req.params.id;
+
+  try {
+    // Step 1: Get the image filename from the database
+    const [rows] = await db.execute(`SELECT image FROM services WHERE service_id = ?`, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ status: "error", message: "Service not found" });
     }
+
+    const imageFilename = rows[0].image;
+    const imagePath = path.join('uploads', imageFilename);
+
+    // Step 2: Delete the image file if it exists
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    // Step 3: Delete the service from the database
+    const [response] = await db.execute(`DELETE FROM services WHERE service_id = ?`, [id]);
+
+    if (response.affectedRows > 0) {
+      return res.status(200).json({ status: "success", message: "Service Removed" });
+    }
+
+    return res.status(404).json({ status: "error", message: "Cannot delete service" });
+
+  } catch (e) {
+    console.error("Error deleting service:", e);
+    return res.status(500).json({ status: "error", message: "Internal server error" });
+  }
 }
