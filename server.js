@@ -32,4 +32,4 @@ app.use("/gallery", galleryRouter);
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.listen(3000, () => console.log("http://localhost:3000"));
+app.listen(3306, () => console.log("http://localhost:3000"));

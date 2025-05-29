@@ -1,4 +1,3 @@
-import { response } from "express";
 import db from "../model/db.js";
 import { v4 as uuidv4 } from "uuid";
 export async function getItems(req, res) {
@@ -87,8 +86,8 @@ export async function dailyProfitLoss(req, res) {
   IFNULL(e.total_expenses, 0) AS total_expenses,
   (IFNULL(s.total_sales, 0) - IFNULL(e.total_expenses, 0)) AS profit_or_loss
 FROM
-  (SELECT SUM(total_price) AS total_sales FROM Sales WHERE DATE(sale_date) = CURDATE()) AS s,
-  (SELECT SUM(amount) AS total_expenses FROM Expenses WHERE DATE(expense_date) = CURDATE()) AS e;
+  (SELECT SUM(total_price) AS total_sales FROM sales WHERE DATE(sale_date) = CURDATE()) AS s,
+  (SELECT SUM(amount) AS total_expenses FROM expenses WHERE DATE(expense_date) = CURDATE()) AS e;
 
 
 `;
@@ -111,21 +110,21 @@ export async function monthlyProfitLoss(req, res) {
     IFNULL(e.total_expenses, 0) AS total_expenses,
     (IFNULL(s.total_sales, 0) - IFNULL(e.total_expenses, 0)) AS profit_or_loss
   FROM (
-    SELECT DISTINCT DATE(sale_date) AS day FROM Sales
+    SELECT DISTINCT DATE(sale_date) AS day FROM sales
     WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
     UNION
-    SELECT DISTINCT DATE(expense_date) AS day FROM Expenses
+    SELECT DISTINCT DATE(expense_date) AS day FROM expenses
     WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
   ) AS d
   LEFT JOIN (
     SELECT DATE(sale_date) AS day, SUM(total_price) AS total_sales
-    FROM Sales
+    FROM sales
     WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
     GROUP BY DATE(sale_date)
   ) AS s ON d.day = s.day
   LEFT JOIN (
     SELECT DATE(expense_date) AS day, SUM(amount) AS total_expenses
-    FROM Expenses
+    FROM expenses
     WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
     GROUP BY DATE(expense_date)
   ) AS e ON d.day = e.day
@@ -136,24 +135,24 @@ UNION ALL
     'Total for Month' AS label,
     IFNULL((
       SELECT SUM(total_price)
-      FROM Sales
+      FROM sales
       WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
     ), 0) AS total_sales,
     IFNULL((
       SELECT SUM(amount)
-      FROM Expenses
+      FROM expenses
       WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
     ), 0) AS total_expenses,
     (
       IFNULL((
         SELECT SUM(total_price)
-        FROM Sales
+        FROM sales
         WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
       ), 0)
       -
       IFNULL((
         SELECT SUM(amount)
-        FROM Expenses
+        FROM expenses
         WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
       ), 0)
     ) AS profit_or_loss
