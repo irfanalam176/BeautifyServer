@@ -32,4 +32,6 @@ app.use("/gallery", galleryRouter);
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+
+// the listining port
 app.listen(3000, () => console.log("http://localhost:3000"));
