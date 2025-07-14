@@ -31,9 +31,9 @@ export async function addService(req, res) {
       console.log("Request body:", req.body);
       console.log("Uploaded file:", req.file);
 
-      const { name, description, price } = req.body;
+      const { name, description,cost, price } = req.body;
 
-      if (!name || !description || !price || !req.file) {
+      if (!name || !description ||!cost || !price || !req.file) {
         return res.status(400).json({
           success: false,
           message: "All fields are required",
@@ -42,8 +42,8 @@ export async function addService(req, res) {
 
       try {
          const serviceId = uuidv4();
-        const sql = `INSERT INTO services(service_id, name, image, description, price) VALUES (?,?,?,?,?)`;
-        const [response] = await db.execute(sql,[serviceId,name,req.file.filename,description,price])
+        const sql = `INSERT INTO services(service_id, name, image, description,cost, price) VALUES (?,?,?,?,?,?)`;
+        const [response] = await db.execute(sql,[serviceId,name,req.file.filename,description,cost,price])
         if(response.affectedRows>0){
             return res.json({
                 status:"success",
@@ -60,6 +60,7 @@ export async function addService(req, res) {
         data: {
           name,
           description,
+          cost,
           price,
           image: req.file.filename,
         },
@@ -116,10 +117,10 @@ export function updateService(req, res) {
       console.log(req.body);
       console.log(req.file);
       
-      const { name, description, price } = req.body;
+      const { name, description,cost, price } = req.body;
       const { id } = req.params;
 
-      if (!name || !description || !price) {
+      if (!name || !description || !cost || !price) {
         return res.status(400).json({
           success: false,
           message: "All fields are required",
@@ -146,13 +147,14 @@ export function updateService(req, res) {
         }
 
         const updateQuery = `
-          UPDATE services SET name=?,image=?,description=?,price=? WHERE service_id = ?
+          UPDATE services SET name=?,image=?,description=?,cost=?, price=? WHERE service_id = ?
         `;
 
         const [response] = await db.execute(updateQuery, [
           name,
           image,
           description,
+          cost,
           price,
           id,
         ]);
@@ -165,6 +167,7 @@ export function updateService(req, res) {
               id,
               name,
               description,
+              cost,
               price,
               image,
             },

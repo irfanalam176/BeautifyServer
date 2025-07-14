@@ -11,6 +11,7 @@ export async function getProducts(req, res) {
                 p.product_id,
                 p.name,
                 p.description,
+                p.cost,
                 p.price,
                 p.stock_quantity,
                 p.image,
@@ -41,6 +42,7 @@ export async function getProductById(req, res) {
         p.product_id AS id,
         p.name,
         p.description,
+        p.cost,
         p.price,
         p.stock_quantity AS quantity,
         p.image,
@@ -83,9 +85,9 @@ export async function addProduct(req, res) {
       console.log("Request body:", req.body);
       console.log("Uploaded file:", req.file);
 
-      const { name, description, price,quantity, category_id } = req.body;
+      const { name, description,cost, price,quantity, category_id } = req.body;
 
-      if (!name || !description || !price ||!quantity || !category_id || !req.file) {
+      if (!name || !description || !cost|| !price ||!quantity || !category_id || !req.file) {
         return res.status(400).json({
           success: false,
           message: "All fields are required",
@@ -94,8 +96,8 @@ export async function addProduct(req, res) {
 
       try {
          const productId = uuidv4();
-        const sql = `INSERT INTO products(product_id, name, category, description, price, stock_quantity, image) VALUES (?,?,?,?,?,?,?)`;
-        const [response] = await db.execute(sql,[productId,name,category_id,description,price,quantity,req.file.filename])
+        const sql = `INSERT INTO products(product_id, name, category, description,cost, price, stock_quantity, image) VALUES (?,?,?,?,?,?,?,?)`;
+        const [response] = await db.execute(sql,[productId,name,category_id,description,cost,price,quantity,req.file.filename])
         if(response.affectedRows>0){
             return res.json({
                 status:"success",
@@ -112,6 +114,7 @@ export async function addProduct(req, res) {
         data: {
           name,
           description,
+          cost,
           price,
           category_id,
           image: req.file.filename,
@@ -143,10 +146,10 @@ export function updateProduct(req, res) {
       console.log(req.body);
       console.log(req.file);
       
-      const { name, description, price, quantity, category_id } = req.body;
+      const { name, description,cost, price, quantity, category_id } = req.body;
       const { id } = req.params;
 
-      if (!name || !description || !price || !quantity || !category_id) {
+      if (!name || !description ||!cost|| !price || !quantity || !category_id) {
         return res.status(400).json({
           success: false,
           message: "All fields are required",
@@ -174,7 +177,7 @@ export function updateProduct(req, res) {
 
         const updateQuery = `
           UPDATE products 
-          SET name = ?, category = ?, description = ?, price = ?, stock_quantity = ?, image = ? 
+          SET name = ?, category = ?, description = ?,cost=?, price = ?, stock_quantity = ?, image = ? 
           WHERE product_id = ?
         `;
 
@@ -182,6 +185,7 @@ export function updateProduct(req, res) {
           name,
           category_id,
           description,
+          cost,
           price,
           quantity,
           image,
@@ -196,6 +200,7 @@ export function updateProduct(req, res) {
               id,
               name,
               description,
+              cost,
               price,
               quantity,
               category_id,

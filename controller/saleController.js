@@ -80,15 +80,37 @@ export async function addSale(req, res) {
 
 export async function dailyProfitLoss(req, res) {
   const sql = `
-  SELECT
+SELECT
   DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS day,
   IFNULL(s.total_sales, 0) AS total_sales,
+  IFNULL(c.total_cost, 0) AS total_cost,
   IFNULL(e.total_expenses, 0) AS total_expenses,
-  (IFNULL(s.total_sales, 0) - IFNULL(e.total_expenses, 0)) AS profit_or_loss
+  (
+    IFNULL(s.total_sales, 0) - 
+    IFNULL(c.total_cost, 0) - 
+    IFNULL(e.total_expenses, 0)
+  ) AS profit_or_loss
 FROM
+  -- Total sales today
   (SELECT SUM(total_price) AS total_sales FROM sales WHERE DATE(sale_date) = CURDATE()) AS s,
-  (SELECT SUM(amount) AS total_expenses FROM expenses WHERE DATE(expense_date) = CURDATE()) AS e;
+  
+  -- Total purchase cost of sold items today
+  (
+    SELECT SUM(
+      CASE 
+        WHEN item_type = 'product' THEN p.cost * sa.quantity
+        WHEN item_type = 'service' THEN sv.cost * sa.quantity
+        ELSE 0
+      END
+    ) AS total_cost
+    FROM sales sa
+    LEFT JOIN products p ON sa.item_type = 'product' AND sa.item_id = p.product_id
+    LEFT JOIN services sv ON sa.item_type = 'service' AND sa.item_id = sv.service_id
+    WHERE DATE(sa.sale_date) = CURDATE()
+  ) AS c,
 
+  -- Total expenses today
+  (SELECT SUM(amount) AS total_expenses FROM expenses WHERE DATE(expense_date) = CURDATE()) AS e;
 
 `;
   try {
@@ -103,12 +125,13 @@ FROM
 
 export async function monthlyProfitLoss(req, res) {
   const sql = `
-(
+SELECT * FROM (
   SELECT
     DATE_FORMAT(d.day, '%Y-%m-%d') AS label,
     IFNULL(s.total_sales, 0) AS total_sales,
+    IFNULL(s.total_cost, 0) AS total_cost,
     IFNULL(e.total_expenses, 0) AS total_expenses,
-    (IFNULL(s.total_sales, 0) - IFNULL(e.total_expenses, 0)) AS profit_or_loss
+    (IFNULL(s.total_sales, 0) - IFNULL(s.total_cost, 0) - IFNULL(e.total_expenses, 0)) AS profit_or_loss
   FROM (
     SELECT DISTINCT DATE(sale_date) AS day FROM sales
     WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
@@ -117,10 +140,21 @@ export async function monthlyProfitLoss(req, res) {
     WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
   ) AS d
   LEFT JOIN (
-    SELECT DATE(sale_date) AS day, SUM(total_price) AS total_sales
-    FROM sales
-    WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
-    GROUP BY DATE(sale_date)
+    SELECT 
+      DATE(s.sale_date) AS day,
+      SUM(s.total_price) AS total_sales,
+      SUM(
+        CASE 
+          WHEN s.item_type = 'product' THEN p.cost * s.quantity
+          WHEN s.item_type = 'service' THEN sv.cost * s.quantity
+          ELSE 0
+        END
+      ) AS total_cost
+    FROM sales s
+    LEFT JOIN products p ON s.item_id = p.product_id AND s.item_type = 'product'
+    LEFT JOIN services sv ON s.item_id = sv.service_id AND s.item_type = 'service'
+    WHERE MONTH(s.sale_date) = MONTH(CURDATE()) AND YEAR(s.sale_date) = YEAR(CURDATE())
+    GROUP BY DATE(s.sale_date)
   ) AS s ON d.day = s.day
   LEFT JOIN (
     SELECT DATE(expense_date) AS day, SUM(amount) AS total_expenses
@@ -128,35 +162,30 @@ export async function monthlyProfitLoss(req, res) {
     WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
     GROUP BY DATE(expense_date)
   ) AS e ON d.day = e.day
-)
+) AS daily_report
+
 UNION ALL
-(
-  SELECT
-    'Total for Month' AS label,
-    IFNULL((
-      SELECT SUM(total_price)
-      FROM sales
-      WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
-    ), 0) AS total_sales,
-    IFNULL((
-      SELECT SUM(amount)
-      FROM expenses
-      WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
-    ), 0) AS total_expenses,
-    (
-      IFNULL((
-        SELECT SUM(total_price)
-        FROM sales
-        WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())
-      ), 0)
-      -
-      IFNULL((
-        SELECT SUM(amount)
-        FROM expenses
-        WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())
-      ), 0)
-    ) AS profit_or_loss
-);
+
+SELECT
+  'Total for Month' AS label,
+  IFNULL(SUM(total_price), 0) AS total_sales,
+  IFNULL(SUM(item_cost), 0) AS total_cost,
+  IFNULL((SELECT SUM(amount) FROM expenses WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())), 0) AS total_expenses,
+  (IFNULL(SUM(total_price), 0) - IFNULL(SUM(item_cost), 0) - IFNULL((SELECT SUM(amount) FROM expenses WHERE MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())) , 0)) AS profit_or_loss
+FROM (
+  SELECT 
+    s.total_price,
+    CASE 
+      WHEN s.item_type = 'product' THEN p.cost * s.quantity
+      WHEN s.item_type = 'service' THEN sv.cost * s.quantity
+      ELSE 0
+    END AS item_cost
+  FROM sales s
+  LEFT JOIN products p ON s.item_id = p.product_id AND s.item_type = 'product'
+  LEFT JOIN services sv ON s.item_id = sv.service_id AND s.item_type = 'service'
+  WHERE MONTH(s.sale_date) = MONTH(CURDATE()) AND YEAR(s.sale_date) = YEAR(CURDATE())
+) AS totals;
+
 
   `;
   try {
